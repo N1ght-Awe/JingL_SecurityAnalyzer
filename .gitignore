@@ -1,0 +1,19 @@
+# Local validation artifacts and traffic captures
+work/
+*.pcap
+*.pcapng
+
+# Local secrets and environment files
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
