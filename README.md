@@ -66,3 +66,4 @@ jingl-analyzer/
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-architecture.ps1
 ```
+
