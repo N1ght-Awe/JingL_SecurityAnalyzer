@@ -8,6 +8,6 @@
 
 成本：phase_wall_seconds、total_wall_seconds、input_tokens、output_tokens、cached_tokens、model、provider_usage_basis、loaded_reference_chars、build_count、build_reused、retry_count、blocked_reasons。并行墙钟时间不等于各任务用时之和；字符数不是 token 数。
 
-对比运行必须固定仓库提交、范围、模型配置、预算与规则版本，并注明冷/热缓存。质量用人工复核的真阳性/误报、漏检检查和未解决比例；没有真值不能报准确率/召回率。
+对比运行必须固定仓库提交、范围、模型配置、运行环境与规则版本。质量用人工复核的真阳性/误报、漏检检查和未解决比例；没有真值不能报准确率/召回率。
 
 历史扫描速度/消耗如仅用户描述，以“用户报告，未复测”记录；本仓维护校验不是业务扫描性能测试。后续真实环境比较版本时同时交付证据和遗漏清单，不只比较耗时。

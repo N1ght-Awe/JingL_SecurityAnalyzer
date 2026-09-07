@@ -4,7 +4,7 @@
 
 ## 顶层字段
 
-`schema_version`、`skill_version`、`rules_version` 均为 2.0.0；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations`。`metrics.candidates`、`reviewed`、`pending_review` 必须与发现记录一致。
+`schema_version` 为 2.0.0；`skill_version`、`rules_version` 记录实际使用版本，当前均为 2.0.1；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations`。`metrics.candidates`、`reviewed`、`pending_review` 必须与发现记录一致。
 
 ## 每条 finding 的必需字段
 

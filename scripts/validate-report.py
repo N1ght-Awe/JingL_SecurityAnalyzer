@@ -34,7 +34,8 @@ def validate(data, evidence_root):
     if not isinstance(data, dict):
         return ['Report must be an object']
     for key in ('schema_version', 'skill_version', 'rules_version'):
-        check(data.get(key) == VERSION, f'{key}: expected {VERSION}; adapt legacy data explicitly')
+        supported = {VERSION} if key == 'schema_version' else {'2.0.0', '2.0.1'}
+        check(member(data.get(key), supported), f'{key}: unsupported version; adapt legacy data explicitly')
     check(string(data.get('run_id')), 'run_id required')
     for key in ('repositories', 'findings', 'transport_links', 'cross_repo_chains', 'limitations'):
         check(isinstance(data.get(key), list), f'{key}: expected array')

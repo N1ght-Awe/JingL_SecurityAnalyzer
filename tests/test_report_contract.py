@@ -53,6 +53,12 @@ class ContractTests(unittest.TestCase):
         self.f['priority'] = 'P0'
         self.assertEqual(self.errors(), [])
 
+    def test_patch_rules_keep_report_schema_compatible(self):
+        self.data.update(skill_version='2.0.1', rules_version='2.0.1')
+        self.assertEqual(self.errors(), [])
+        self.data['schema_version'] = '2.0.1'
+        self.assertTrue(self.errors())
+
     def test_claim_without_execution_rejected(self):
         self.f['status'] = '确认'
         self.assertTrue(self.errors())

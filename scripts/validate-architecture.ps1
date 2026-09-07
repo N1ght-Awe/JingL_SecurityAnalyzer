@@ -41,7 +41,7 @@ $patterns = Get-Content -Raw -Encoding UTF8 (Join-Path $refs 'proof-patterns.md'
 if ($patterns -notmatch 'supply-chain\.upload-download-execute-without-verification') { throw 'Missing supply-chain proof pattern' }
 if ($text -match '## 17') { throw 'Main entry still has a stale 17-type heading' }
 foreach ($versionField in @('skill_version', 'rules_version')) {
-  if ($text -notmatch "$($versionField): 2\.0\.0") { throw "Stale version: $versionField" }
+  if ($text -notmatch "$($versionField): 2\.0\.1") { throw "Stale version: $versionField" }
 }
 foreach ($path in @('scripts/validate-report.py', 'tests/test_report_contract.py')) {
   if (-not (Test-Path (Join-Path $Root $path))) { throw "Missing contract validation: $path" }
