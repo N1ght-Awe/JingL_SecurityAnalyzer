@@ -1,38 +1,13 @@
-# 扫描覆盖量化
+# 覆盖与成本
 
-阶段1建立基线，阶段3记录实际搜索与截断重试，阶段9将结果写入扫描统计。量化信息用于解释扫描边界；不得把未扫描、无法解析或零命中表述为“安全”。
+在画像时建立统计，扫描期间累计，结束时核对。所有不可得数值写 null 和原因，不能填 0 代替未知。
 
-## 必填统计
+范围：仓库/提交、模块、生产/测试/生成文件数、支持语言、排除路径及原因、入口类别和已检查入口、实际已读文件、已审代码范围、截断与未重试搜索。扫描完成仅指声明范围和规则计划完成，不保证不存在漏洞。
 
-```yaml
-scope:
-  target_root: 用户提供的路径
-  repositories_detected: 0
-  repositories_scanned: 0
-  repositories_skipped: [{repo: name, reason: 原因}]
-files:
-  java_total: 0
-  java_read: 0
-  java_skipped: [{path_or_pattern: path, reason: 生成代码|二进制|读取失败|超出用户范围}]
-  xml_mapper_total: 0
-  xml_mapper_read: 0
-  config_total: 0
-  config_read: 0
-  build_files_read: 0
-analysis:
-  entry_points_found: 0
-  vulnerability_types_enabled: [SQL注入]
-  candidates: [{type: SQL注入, total: 0, p0: 0, p1: 0, p2: 0, p3: 0}]
-  grep_truncations: [{rule: pattern, initial_count: 0, retry: 分目录/文件类型/精确模式, completed: true}]
-  boundary_links_resolved: 0
-  boundary_links_unresolved: 0
-limitations: [未解析的动态反射调用]
-```
+漏斗：raw_hits（去重前命中）、candidates（根因去重后）、reviewed、pending_review、source_closed、validation_selected、validation_executed、validation_passed、unresolved。分别定义，不能混加。`candidates = reviewed + pending_review`；报告 status 计数之和等于候选数；验证计数与 finding 原始记录一致。
 
-## 统计规则
+成本：phase_wall_seconds、total_wall_seconds、input_tokens、output_tokens、cached_tokens、model、provider_usage_basis、loaded_reference_chars、build_count、build_reused、retry_count、blocked_reasons。并行墙钟时间不等于各任务用时之和；字符数不是 token 数。
 
-- Java文件总数以目标范围内生产源码为主；测试、生成、二进制和用户明确排除的目录必须分别记录，不可静默排除。
-- XML Mapper、配置、构建文件分别计数，避免“Java文件已读”掩盖数据访问层或生效配置未覆盖。
-- 发生Grep截断时记录初始数量、分片方式和是否完成；未完成的规则进入`limitations`。
-- 每类漏洞必须记录P0/P1/P2/P3总数或明确说明未启用原因。
-- 报告结尾必须说明：零候选仅代表已记录范围内未发现匹配证据，不代表整体不存在漏洞。
+对比运行必须固定仓库提交、范围、模型配置、预算与规则版本，并注明冷/热缓存。质量用人工复核的真阳性/误报、漏检检查和未解决比例；没有真值不能报准确率/召回率。
+
+历史扫描速度/消耗如仅用户描述，以“用户报告，未复测”记录；本仓维护校验不是业务扫描性能测试。后续真实环境比较版本时同时交付证据和遗漏清单，不只比较耗时。

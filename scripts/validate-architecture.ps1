@@ -8,7 +8,8 @@ $requiredRefs = @(
   'call-chain-tracing.md', 'proof-schema.md', 'security-tool-probing.md',
   'cross-repo-tracing.md', 'sanitizers.md', 'proof-patterns.md',
   'subskill-contract.md', 'agent-output-schema.md', 'repo-boundary-manifest.md',
-  'report-schema.md', 'regression-matrix.md', 'coverage-metrics.md'
+  'report-schema.md', 'regression-matrix.md', 'coverage-metrics.md',
+  'poc-generation.md', 'poc-execution.md', 'http-extraction.md'
 )
 
 foreach ($name in $requiredRefs) {
@@ -26,6 +27,8 @@ foreach ($skill in $skills) {
   $file = Join-Path $skill.FullName 'skill.md'
   if (-not (Test-Path $file)) { throw "Subskill missing skill.md: $($skill.Name)" }
   $body = Get-Content -Raw -Encoding UTF8 $file
+  if ($body -notmatch '(?s)^---\r?\nname: .+?\r?\ndescription: .+?\r?\n---') { throw "Malformed frontmatter: $($skill.Name)" }
+  if ($body -match '```') { throw "Subskill contains inline example/code block: $($skill.Name)" }
   if (([regex]::Matches($body, '(?m)^## [1-9]\.')).Count -lt 9) { throw "Subskill has fewer than nine core sections: $($skill.Name)" }
 }
 
@@ -37,5 +40,11 @@ foreach ($skill in $skills) {
 $patterns = Get-Content -Raw -Encoding UTF8 (Join-Path $refs 'proof-patterns.md')
 if ($patterns -notmatch 'supply-chain\.upload-download-execute-without-verification') { throw 'Missing supply-chain proof pattern' }
 if ($text -match '## 17') { throw 'Main entry still has a stale 17-type heading' }
+foreach ($versionField in @('skill_version', 'rules_version')) {
+  if ($text -notmatch "$($versionField): 2\.0\.0") { throw "Stale version: $versionField" }
+}
+foreach ($path in @('scripts/validate-report.py', 'tests/test_report_contract.py')) {
+  if (-not (Test-Path (Join-Path $Root $path))) { throw "Missing contract validation: $path" }
+}
 
 Write-Output "PASS: 18 subskills, $($requiredRefs.Count) shared references, index routing, supply-chain proof pattern, and main entry are consistent."

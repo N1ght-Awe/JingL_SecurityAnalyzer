@@ -25,7 +25,7 @@ Source、Propagation、Sink、Sanitizer、Guard、Transport、Preconditions、Im
 
 ## 5. 防护措施清单
 
-**强防护：** 服务端固定映射到有限允许类/方法；固定接口类型；拒绝危险成员和任意可访问性绕过。
+**强防护：** 服务端固定映射到有限允许类/方法；经核验安全的固定目标集合及能力限制；拒绝危险成员和任意可访问性绕过。
 
 **弱防护：** 仅限制包名前缀、黑名单类名、仅校验字符串长度。
 
@@ -34,6 +34,8 @@ Source、Propagation、Sink、Sanitizer、Guard、Transport、Preconditions、Im
 类名和方法名均为常量或内部枚举；反射只读取固定注解；测试/框架初始化代码无外部输入。
 
 ## 7. 判定标准
+
+以下为源码审查判据；最终结论与执行状态统一遵循 shared-references/proof-schema.md。
 
 确认：外部可控反射目标能触发危险行为且无强映射。误报：目标由固定映射完全限定。缺失插件/配置来源时标记缺失关键源码。
 

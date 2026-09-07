@@ -1,69 +1,41 @@
-# JingL Security Analyzer
+# JingL Security Analyzer 2.0.0
 
-面向 Java / Spring Boot / Jalor 代码仓的安全扫描 Agent 规则集。将本目录提供给模型后，使用“`jingl 扫描 <代码仓或汇总根目录>`”触发扫描。
+面向 Java / Spring Boot / Jalor 的 18 类漏洞分析规则集。提供给现有模型平台后，以“`jingl 扫描 <代码仓或汇总根目录>`”触发，无需部署独立扫描平台。
 
-## 核心能力
+## 工作方式
 
-- 覆盖 SQL 注入、命令注入、路径穿越、SSRF、权限控制、反序列化、供应链与签名校验缺失等 18 类风险。
-- 以 Source → Propagation → Sink → Sanitizer → Guard → Transport → Preconditions → Impact 证据闭合为确认门槛。
-- 支持多代码仓目录的调用链、共享凭据与供应链关联分析。
-- 区分 `确认`、`误报`、`缺失关键源码`；不以模糊的“可能存在漏洞”代替证据。
-- 默认仅作源码分析；工具验证仅限用户明确授权的测试环境。
+先批量发现候选并去重分级，再深审高风险路径，按漏洞目标选择最小充分验证。主入口精简，类型规则、验证和报告契约按需加载。
+
+- P0–P3 同时表达严重度与处理紧迫度；保留初评、终评依据及待定标记。
+- 源码结论与执行状态分开：待审查、缺失关键源码、待验证、源码确认、确认、误报。
+- 局部模拟必须使用真实目标实现；权限等目标需保留实际安全链。POC 生成、构建成功或 mock 输出不算漏洞复现。
+- 保留跨仓调用、身份、传输和制品关联；不根据框架注解、内网地址或库名称自动判安全。
+- 验证失败、环境缺失、预算耗尽都保留在报告里，不变成误报或消失的候选。
 
 ## 结构
 
-- `skill.md`：主控流程、触发方式和执行纪律。
-- `shared-references/`：扫描索引、调用链、防护分类、报告与覆盖统计契约。
-- `skill/`：18 个专项漏洞分析子 Skill。
-- `scripts/validate-architecture.ps1`：规则结构一致性校验。
+| 位置 | 用途 |
+|---|---|
+| `skill.md` | 触发、流程、按需读取和预算 |
+| `shared-references/` | 18 份范围、证明、验证和报告引用 |
+| `skill/` | 18 类专项规则，不含教学代码和固定 payload |
+| `scripts/validate-architecture.ps1` | 路由、版本、文件和子 Skill 结构检查 |
+| `scripts/validate-report.py` | JSON 报告状态与原始证据摘要检查 |
+| `tests/` | 维护时使用的契约回归，不随扫描加载 |
+| `CHANGELOG.md` | 版本变化、迁移与真实环境对照方法 |
 
-```text
-jingl-analyzer/
-├── skill.md                          # 本文件：主入口
-├── shared-references/
-│   ├── source-routing.md             # 项目画像 + 输入源路由
-│   ├── scan-index.md                 # 轻量候选发现规则
-│   ├── candidate-ranking.md          # P0/P1/P2/P3候选排序
-│   ├── proof-schema.md               # 证据闭合 + 结论状态 + 报告字段
-│   ├── sanitizers.md                 # 强/弱防护分类
-│   ├── proof-patterns.md             # 结构化证明模板
-│   ├── call-chain-tracing.md         # 调用链追踪方法论
-│   ├── cross-repo-tracing.md         # 跨代码仓调用链追踪方法论
-│   ├── security-tool-probing.md      # 安全工具辅助传输链路探测
-│   ├── subskill-contract.md          # 子Skill最小判定契约
-│   ├── agent-output-schema.md        # 并行Agent结构化输出与接收校验
-│   ├── repo-boundary-manifest.md     # 跨仓边界清单
-│   ├── report-schema.md              # Finding与四Sheet渲染数据契约
-│   ├── regression-matrix.md          # 规则修改后的最小回归矩阵
-│   └── coverage-metrics.md           # 扫描范围与覆盖量化口径
-└── skill/                            # 18个专业漏洞分析子Skill
-    ├── SQL注入/skill.md
-    ├── XSS/skill.md
-    ├── SSRF/skill.md
-    ├── 反序列化/skill.md
-    ├── 命令注入/skill.md
-    ├── 路径穿越/skill.md
-    ├── 权限控制/skill.md
-    ├── XXE/skill.md
-    ├── 表达式注入/skill.md
-    ├── 不安全反射/skill.md
-    ├── 敏感信息写入日志/skill.md
-    ├── 硬编码/skill.md
-    ├── 网络安全配置/skill.md
-    ├── CSV注入/skill.md
-    ├── 弱随机数/skill.md
-    ├── 资源消耗/skill.md
-    ├── 输入校验/skill.md
-    └── 供应链与签名校验缺失/skill.md
-```
-
-## 当前范围
-
-正式覆盖 Java / Spring Boot / Jalor。报告会记录 Skill 与规则版本、扫描范围、覆盖统计、跳过项和分析局限性。
+保留既有小写 `skill.md` 路径，供已接入的模型平台继续使用。本仓是平台读取的规则包；需要平台原生 Skill 安装结构时，由接入层适配文件命名与元数据。
 
 ## 校验
 
+需要 PowerShell，以及 Python 3.11+（仅标准库）。
+
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-architecture.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-architecture.ps1
+python -m unittest discover -s tests -v
+python scripts/validate-report.py <report.json> --evidence-root <报告根目录>
 ```
 
+报告保留四个视图：漏洞扫描报告、传输链路探测分析、扫描统计、跨代码仓调用链分析。完整候选留在 JSON；旧报告迁移要求见 [报告契约](shared-references/report-schema.md)。
+
+当前验证覆盖规则结构与报告契约，未附完整业务目标仓，不宣称已证明真实扫描准确率、召回率、半小时完成或 token 节省比例。

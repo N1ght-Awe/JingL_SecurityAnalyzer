@@ -1,33 +1,7 @@
-# 并行Agent结构化输出契约
+# 分工输出契约
 
-并行Agent只返回发现和追踪结果，不给最终finding或“确认/误报”结论。使用下列字段；缺失字段必须显式写 `null` 和原因。
+仅在平台支持且用户授权并行时使用；串行使用同样的候选数据结构。按模块或互不重叠的类型划分范围，避免多个执行者重复读整仓。主审负责跨仓关联、结论和报告。
 
-## 候选对象
+每份结果返回：assigned_scope、actually_reviewed、skipped、truncated、candidates、boundary_edges、evidence_refs、cost（不可得为 null）。候选使用 report-schema.md 字段，未深审为待审查；主审不能直接采信子任务的确认标签。
 
-```yaml
-candidate_id: MOD-TYPE-001
-vulnerability_type: SQL注入
-location: path/file:line
-match_rule: "${...}"
-context: 简短上下文
-source_evidence: {location: path:line, detail: 外部输入或间接输入}
-sink_evidence: {location: path:line, detail: 危险操作}
-priority: P0|P1|P2|P3
-priority_reason: 基于可见证据的排序理由
-visible_defenses: [{name: function_or_annotation, location: path:line, implementation_read: false}]
-forward_trace: [入口, 调用1, Sink]
-reverse_trace: [Sink, 调用者1]
-trace_depth: {forward: 0, reverse: 0}
-trace_complete: true|false
-missing_evidence: [具体缺失环节]
-```
-
-## 跨仓与传输对象
-
-每个Agent还必须返回 `cross_repo_calls[]` 和 `transport_signals[]`。前者包含调用方/目标/协议/接口或Topic/数据/安全机制；后者包含信号位置、客户端实例、全部已定位请求、敏感字段、追踪完整性。
-
-## 主Agent接收校验
-
-- P0必须有Sink和用户可控证据，或明确标记哪一项缺失；P1必须有Sink和至少一层来源追踪。
-- `visible_defenses` 不得标“强/弱”；主Agent读取实现后才能分类。
-- 相同候选ID、缺失位置、追踪深度不足且无豁免原因，均退回补充，不进入阶段5。
+候选需有稳定 ID、仓库/版本、源位置、类型、初评及依据、已读实现、未读缺口。证据使用文件引用及摘要，不复制大段日志。分工数量不证明覆盖度；主审核对范围并集、缺口、重复和跨仓边是否接上。

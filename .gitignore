@@ -1,5 +1,7 @@
 # Local validation artifacts and traffic captures
 work/
+__pycache__/
+*.pyc
 *.pcap
 *.pcapng
 
