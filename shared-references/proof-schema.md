@@ -27,4 +27,12 @@ Source、Propagation、Sink、Sanitizer、Guard、Transport、Preconditions、Im
 
 确认必须满足 PASSED、非 none scope、target_executed=true、controls_passed=true、result_supported=true、完整工具记录。模型写出的预期输出、手写同款漏洞代码、mock 的危险结果不算目标执行。
 
+## 防护状态与证据状态
+
+state 描述证据掌握程度，保持 observed / inferred / missing / not_applicable。missing 表示该维度所需证据缺失，不表示已经证明防护不存在。完成确切路径范围检查后，观察到缺少控制可记 observed，summary 写明缺失的是哪种控制及检查范围，refs 指向实际路径/配置证据；未读完为待审查，实现确实未提供为缺失关键源码，政策或部署未知为待验证。不得用 not_applicable 隐藏未知。
+
+防护知识按 control-knowledge.md 复用；实现已审查不能代替当前调用点核验。缺少防护只是证明义务的一部分，仍需证明可控性、可达性、触发语义、授权边界、前提和影响。防护侧观察使用 control_observations，不能把其组件定义塞进 Source 或把输入通道塞进 Sink。
+
+源码确认无需为了升级标签而伪造运行证据。真实局部执行可给确认，但 trigger/exploitation/validation.goal 必须限定已验证的局部属性；省略相关授权链不能声称接口越权。单次未复现不能判误报，充分同路径反证才可排除。
+
 严重度遵循 candidate-ranking.md。执行失败不得降低严重度；源码确认可为 P0。风险置信度用证据描述，不输出无校准依据的百分比。

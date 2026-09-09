@@ -23,7 +23,7 @@ def sample():
         'trigger': 'Fixture input', 'exploitation': 'Source-only scope', 'reason': 'Fixture root cause',
         'remediation': 'Fixture binding', 'missing': [], 'related_findings': [],
     }
-    return {**{k: validator.VERSION for k in ('schema_version', 'skill_version', 'rules_version')},
+    return {**{k: '2.0.0' for k in ('schema_version', 'skill_version', 'rules_version')},
             'run_id': 'fixture', 'repositories': [{'repo_id': 'test', 'revision': 'fixture', 'path': '.'}],
             'findings': [finding], 'transport_links': [], 'cross_repo_chains': [], 'limitations': ['Synthetic contract fixture'],
             'metrics': {'candidates': 1, 'reviewed': 1, 'pending_review': 0}}
