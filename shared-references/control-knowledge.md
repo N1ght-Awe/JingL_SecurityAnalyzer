@@ -40,3 +40,7 @@
 `control_applications` 记录每条使用路径：id、control_id、repo_id、location、finding_ids（可以为空）、outcome（applicable/not_applicable/unresolved）、reason、checks。checks 是上述六个键的对象，每项 state（observed/inferred/missing）、result（pass/fail/unknown）、summary、refs；applicable 要求六项均 observed+pass 且有引用，所引用 knowledge 为 reviewed，关联 finding 类型属于 protects。observed 表示完成当前核验，不表示条件一定满足；观察到校验后又被危险拼接时是 observed+fail，不能将 outcome 写成 applicable。
 
 实现合同与所有适用性结论仍需人工核验；结构检查不能证明一串人为填写的 observed 为真。不得为了通过校验补造摘要或引用。
+
+## 与执行监督衔接
+
+2.2报告复用防护时，execution-supervision 的义务/边引用当前调用点、返回值使用、相关配置及实现读取回执。复用的旧审查理由可以保留，实现身份须以本轮源码快照核对；控制存在但未读/未确认生效时不能借 applicable 跳过监督。

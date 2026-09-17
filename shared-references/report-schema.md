@@ -1,14 +1,18 @@
-# 报告契约 2.1.0
+# 报告契约 2.2.0
 
 结构化 JSON 为唯一数据源，四个原有 Sheet 名称保留；表格渲染不可修改结论。不能生成 XLSX 的平台输出同名 Markdown/CSV 视图并说明，不能声称已生成工作簿。
 
 ## 顶层字段
 
-新报告 `schema_version`、`skill_version`、`rules_version` 为 2.1.0；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`、`reviewed`、`pending_review` 必须与 findings 一致，不混入控制侧观察。
+新报告 `schema_version`、`skill_version`、`rules_version` 为 2.2.0；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`、`reviewed`、`pending_review` 必须与 findings 一致，不混入控制侧观察。
 
 2.1.0 另要求 `scan_types`（非空18类子集）、`assets`、`coverage`、`coverage_status`，具体结构与含义见 coverage-metrics.md 和 repo-boundary-manifest.md；以及 `control_knowledge`、`control_applications`、`control_observations` 三个数组（无记录填空数组），结构见 control-knowledge.md、protection-audit-methodology.md。完整范围或部分报告均可交付，不把覆盖状态与 finding/validation 状态混为一谈。
 
 路径复用的实现指纹是仓库相对 path 与真实 sha256；与 validation.artifacts（报告根目录内的运行证据）用途不同。报告校验器检查前者结构与引用，不自动读取业务仓，不宣称重新计算了源码摘要或验证了适用性。
+
+## 执行监督
+
+2.2.0 继承2.1覆盖/复用字段，另要求顶层 supervision 数组，逐 finding 对应，详见 execution-supervision.md。源码确认、确认和误报均须监督 pass；缺回执、必需范围未读或未解析边将拒绝这三种终结论。历史2.0/2.1仍可验证历史契约，但不代表经过监督；2.2规则不得降用旧schema，旧schema也拒绝携带supervision而被静默忽略。
 
 ## 每条 finding 的必需字段
 

@@ -36,3 +36,5 @@ state 描述证据掌握程度，保持 observed / inferred / missing / not_appl
 源码确认无需为了升级标签而伪造运行证据。真实局部执行可给确认，但 trigger/exploitation/validation.goal 必须限定已验证的局部属性；省略相关授权链不能声称接口越权。单次未复现不能判误报，充分同路径反证才可排除。
 
 严重度遵循 candidate-ranking.md。执行失败不得降低严重度；源码确认可为 P0。风险置信度用证据描述，不输出无校准依据的百分比。
+
+2.2报告按 execution-supervision.md 对源码确认/确认/误报增加监督 pass 门槛；监督不取代上述证据语义和真实验证。补查失败或读取不完整不等于误报，保留适当待处理状态与具体缺口。
