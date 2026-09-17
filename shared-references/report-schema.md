@@ -1,14 +1,18 @@
 # 报告契约 2.2.0
 
-结构化 JSON 为唯一数据源，四个原有 Sheet 名称保留；表格渲染不可修改结论。不能生成 XLSX 的平台输出同名 Markdown/CSV 视图并说明，不能声称已生成工作簿。
+结构化 JSON 为唯一数据源。默认交付 report.md 主报告和 report.json 原件，主报告包含下述四个固定视图；用户要求XLSX时保留四个原有Sheet名称并遵循相同内容顺序。展示不能修改结论，不能生成XLSX时如实交付Markdown，不声称已生成工作簿。
 
 ## 顶层字段
 
-新报告 `schema_version`、`skill_version`、`rules_version` 为 2.2.0；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`、`reviewed`、`pending_review` 必须与 findings 一致，不混入控制侧观察。
+新报告 `schema_version` 保持 2.2.0，`skill_version`、`rules_version` 为 2.2.1；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`、`reviewed`、`pending_review` 必须与 findings 一致，不混入控制侧观察。
 
 2.1.0 另要求 `scan_types`（非空18类子集）、`assets`、`coverage`、`coverage_status`，具体结构与含义见 coverage-metrics.md 和 repo-boundary-manifest.md；以及 `control_knowledge`、`control_applications`、`control_observations` 三个数组（无记录填空数组），结构见 control-knowledge.md、protection-audit-methodology.md。完整范围或部分报告均可交付，不把覆盖状态与 finding/validation 状态混为一谈。
 
 路径复用的实现指纹是仓库相对 path 与真实 sha256；与 validation.artifacts（报告根目录内的运行证据）用途不同。报告校验器检查前者结构与引用，不自动读取业务仓，不宣称重新计算了源码摘要或验证了适用性。
+
+## 轻量威胁概览
+
+2.2.1规则新报告要求 threat_model，结构见 threat-model.md；这是schema2.2.0的增补字段。旧2.2.0报告无需补造模型即可校验，若提供该字段则同样检查结构、资产/候选引用和证据状态。旧校验器不识别2.2.1规则时应拒绝，不可将版本号降级来忽略新约束。
 
 ## 执行监督
 
@@ -33,6 +37,14 @@
 
 前三个布尔标记需依据原始结果，不可作为人工绕过确认门槛的开关。artifacts 为对象列表，每项 path（相对报告根目录）、sha256（实际文件摘要）。确认至少一项实际原始证据；文件不存在/摘要不符拒绝交付。PASSED 必须 exit_code=0 且目标、对照和结果检查均通过；其他状态的 result_supported 必须为 false。失败尝试也保留命令、环境和证据，缺失说明原因。
 
+## 固定阅读顺序
+
+每次使用相同标题、术语和栏目；不临时改变成另一套长文格式。漏洞扫描报告内部依次为：结果总览 → 系统与威胁边界 → 问题清单 → 问题详情 → 已排除候选 → 防护体系观察。总览将确认、源码确认、待处理和排除分别统计，并明确覆盖完整性。
+
+问题清单固定为编号、问题、级别、结论、执行验证、位置。单项详情固定为结论与级别、位置、触发与前提、已支持的影响与利用范围、根因、验证情况、待补证据、修复方向、关联候选；八维证据放在其后可折叠区域。优先保留P0/P1/P2处理顺序；未定级和P3均保留，误报单列。可提供简短title，否则以类型展示；不能为更醒目而扩大影响。
+
+正文不展开全部命令、工具调用、回执摘要或重复复制源码；这些保留在JSON及证据目录。无链路记录、无未排除候选、模型未知均有明确空态，不转换为“全系统安全”。传输与跨仓详情兼容已有记录结构，完整保留字段，不能为整齐删掉未知字段或缺口。
+
 ## 四个视图
 
 1. **漏洞扫描报告**：全部候选可追溯；默认显示确认、源码确认、高危待审查/待验证/缺源码，单列未审项计数。包含级别（暂定标记）、结论、验证状态/范围、位置、触发、利用、根因、修复和证据引用。误报另筛选显示，不删除。控制侧观察在本视图独立附表呈现，标明 control_gap/improvement、证据边界和关联 finding，不混入漏洞数量或新建第五个必需视图。
@@ -52,4 +64,4 @@
 
 旧“确认”无原始执行证据时最多迁为“源码确认”，源码证据不足则待验证；旧“缺失关键源码”按真实缺口重新分类。历史报告导入不由校验器自动完成，需显式适配，未适配版本拒绝当新报告读取。
 
-交付前运行 `python scripts/validate-report.py <report.json> --evidence-root <报告根目录>`。校验器检查格式、状态组合、引用和文件摘要；不能代替人工核对漏洞逻辑、真实目标及对照质量。
+默认运行 `python scripts/render-report.py <report.json> --evidence-root <报告根目录> --out <report.md>`，它先调用报告校验器，通过后才生成主报告；仅需校验时运行 `python scripts/validate-report.py <report.json> --evidence-root <报告根目录>`。平台不能运行Python时按上述相同顺序输出并注明未做程序校验。校验器检查格式、状态组合、引用和文件摘要；不能代替人工核对漏洞逻辑、真实目标及对照质量。

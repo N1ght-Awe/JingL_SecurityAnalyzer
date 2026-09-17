@@ -1,4 +1,4 @@
-# JingL Security Analyzer 2.2.0
+# JingL Security Analyzer 2.2.1
 
 面向 Java / Spring Boot / Jalor 的 18 类漏洞分析规则集。提供给现有模型平台后，以“`jingl 扫描 <代码仓或汇总根目录>`”触发，无需部署独立扫描平台。
 
@@ -21,16 +21,21 @@
 
 这是证据约束和复核流程，不是自动发现所有调用的引擎；不会保证模型绝不漏读。正式目标保持Java/Spring/Jalor，不因其他语言测试扩展规则范围。调用层次取决于平台已有语义工具，本包不内置通用语言服务器。AST参数依据 [ast-grep CLI文档](https://ast-grep.github.io/reference/cli/run)。
 
+## 统一报告
+
+在原画像步骤内维护一份简短威胁概览：系统用途、主体、保护边界及待核实条件，复用已有资产与候选。默认由JSON生成同一顺序的Markdown主报告：先看结果与边界，再看问题清单和详情，保留原四个视图。执行回执留在原件和附件，不在正文堆叠。无需新增Agent、服务或建模工具。
+
 ## 结构
 
 | 位置 | 用途 |
 |---|---|
 | `skill.md` | 触发、筛选分级和按影响深度验证 |
-| `shared-references/` | 23 份范围、证明、验证、防护复用和报告引用，按需读取 |
+| `shared-references/` | 24 份范围、证明、验证、防护复用和报告引用，按需读取 |
 | `skill/` | 18 类专项规则，不含教学代码和固定 payload |
 | `scripts/validate-architecture.ps1` | 路由、版本、文件和子 Skill 结构检查 |
 | `scripts/validate-report.py` | JSON 状态、原始证据摘要、声明覆盖与防护复用契约检查 |
 | `scripts/audit_evidence.py` | ast-grep + rg 搜索、源码读取回执及监督证据检查 |
+| `scripts/render-report.py` | 校验JSON后生成固定结构的Markdown主报告 |
 | `tests/` | 维护时使用的契约回归，不随扫描加载 |
 | `CHANGELOG.md` | 版本变化、迁移与真实环境对照方法 |
 
@@ -44,10 +49,11 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-architecture.ps1
 python -m unittest discover -s tests -v
 python scripts/validate-report.py <report.json> --evidence-root <报告根目录>
+python scripts/render-report.py <report.json> --evidence-root <报告根目录> --out <report.md>
 ```
 
 报告保留四个视图：漏洞扫描报告、传输链路探测分析、扫描统计、跨代码仓调用链分析。完整候选留在 JSON；旧报告迁移要求见 [报告契约](shared-references/report-schema.md)。
 
-新报告用 schema/skill/rules 2.2.0，加入逐 finding 执行监督；历史2.1覆盖/复用契约也继续兼容；历史 schema 2.0.0（规则2.0.0/2.0.1）继续兼容，不能只改版本号伪装获得新覆盖检查。防护知识是有证据的 JSON 审查记录，由执行模型读取、比对和复用，不是自动训练模型或无需人工证据的缓存引擎。
+新报告使用 schema 2.2.0、skill/rules 2.2.1，保留逐 finding 执行监督并要求轻量threat_model；历史2.1覆盖/复用契约也继续兼容；历史 schema 2.0.0（规则2.0.0/2.0.1）继续兼容，不能只改版本号伪装获得新覆盖检查。防护知识是有证据的 JSON 审查记录，由执行模型读取、比对和复用，不是自动训练模型或无需人工证据的缓存引擎。
 
 当前验证覆盖规则结构与报告契约，未附完整业务目标仓，不宣称已证明真实扫描准确率、召回率、半小时完成或 token 节省比例。

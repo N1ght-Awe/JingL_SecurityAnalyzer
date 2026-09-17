@@ -7,6 +7,7 @@ import importlib.util
 from pathlib import Path, PureWindowsPath
 
 VERSION = '2.2.0'
+RULES_VERSION = '2.2.1'
 LEGACY_VERSION = '2.0.0'
 DIMENSIONS = ('Source', 'Propagation', 'Sink', 'Sanitizer', 'Guard',
               'Transport', 'Preconditions', 'Impact')
@@ -182,6 +183,49 @@ def validate_extensions(data, check, string, member, repo_ids, finding_ids):
     unique(observation_ids, 'control_observations.id')
 
 
+def validate_threat_model(data, check, string):
+    model = data.get('threat_model')
+    check(isinstance(model, dict), 'threat_model: expected object')
+    if not isinstance(model, dict):
+        return
+    check(string(model.get('summary')), 'threat_model.summary required')
+    for key in ('actors', 'assumptions', 'boundaries'):
+        check(isinstance(model.get(key), list), f'threat_model.{key}: expected array')
+    for key in ('actors', 'assumptions'):
+        check(isinstance(model.get(key), list) and all(string(x) for x in model[key]), f'threat_model.{key}: expected strings')
+    check(bool(model.get('actors')) or bool(model.get('assumptions')), 'threat_model: unknown actors require an explicit assumption/gap')
+    assets = {a['asset_id'] for a in data.get('assets', []) if isinstance(a, dict) and string(a.get('asset_id'))} if isinstance(data.get('assets'), list) else set()
+    findings = {f['id'] for f in data.get('findings', []) if isinstance(f, dict) and string(f.get('id'))} if isinstance(data.get('findings'), list) else set()
+    boundaries = model.get('boundaries') if isinstance(model.get('boundaries'), list) else []
+    check(bool(boundaries) or bool(model.get('assumptions')), 'threat_model: absent boundaries require a gap, not an invented safe conclusion')
+    names = set()
+    for row in boundaries:
+        if not isinstance(row, dict):
+            check(False, 'threat_model.boundaries: expected object')
+            continue
+        for key in ('name', 'rule', 'control'):
+            check(string(row.get(key)), f'threat_model.boundary.{key} required')
+        if string(row.get('name')):
+            check(row['name'] not in names, 'threat_model: duplicate boundary name')
+            names.add(row['name'])
+        for key, known in (('asset_ids', assets), ('finding_ids', findings)):
+            values = row.get(key)
+            check(isinstance(values, list) and all(string(x) and x in known for x in values), f'threat_model.{key}: unknown reference or invalid array')
+        check(bool(row.get('asset_ids')), 'threat_model: boundary must reference an existing asset')
+        evidence = row.get('evidence')
+        if not isinstance(evidence, dict):
+            check(False, 'threat_model.boundary.evidence required')
+            continue
+        check(evidence.get('state') in ('observed', 'inferred', 'missing'), 'threat_model: invalid evidence state')
+        check(string(evidence.get('summary')), 'threat_model: evidence summary required')
+        refs = evidence.get('refs')
+        check(isinstance(refs, list) and all(string(x) for x in refs), 'threat_model: evidence refs required')
+        if evidence.get('state') == 'observed':
+            check(bool(refs), 'threat_model: observed boundary needs source refs')
+        else:
+            check(bool(model.get('assumptions')), 'threat_model: inferred/missing boundary must retain uncertainty')
+
+
 def validate(data, evidence_root):
     errors = []
     root = Path(evidence_root).resolve()
@@ -199,9 +243,12 @@ def validate(data, evidence_root):
     if not isinstance(data, dict):
         return ['Report must be an object']
     for key in ('schema_version', 'skill_version', 'rules_version'):
-        supported = {VERSION, '2.1.0', LEGACY_VERSION} if key == 'schema_version' else {'2.0.0', '2.0.1', '2.1.0', VERSION}
+        supported = {VERSION, '2.1.0', LEGACY_VERSION} if key == 'schema_version' else {'2.0.0', '2.0.1', '2.1.0', VERSION, RULES_VERSION}
         check(member(data.get(key), supported), f'{key}: unsupported version; adapt legacy data explicitly')
     check(string(data.get('run_id')), 'run_id required')
+    if RULES_VERSION in (data.get('skill_version'), data.get('rules_version')) or 'threat_model' in data:
+        check(data.get('schema_version') == VERSION, 'threat_model/2.2.1 rules require schema_version 2.2.0')
+        validate_threat_model(data, check, string)
     if data.get('schema_version') == LEGACY_VERSION:
         check(not any(key in data for key in EXTENSIONS), '2.1 extensions require schema_version 2.1.0; legacy checks cannot validate coverage/reuse')
         check(data.get('skill_version') not in ('2.1.0', VERSION) and data.get('rules_version') not in ('2.1.0', VERSION), '2.1+ rules require matching new schema')
