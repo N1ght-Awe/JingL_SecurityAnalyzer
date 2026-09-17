@@ -1,6 +1,6 @@
 # 执行监督与定向补查
 
-监督是报告前的另一轮证据审查，不要求多 Agent 平台。可由同一模型切换到复核步骤；平台支持独立审阅者时可使用，但换模型不是正确性保证。先读取原始搜索结果、源码读取记录和当前结论，不只读取分析者总结。
+监督是报告前的另一轮证据审查，不要求多 Agent 平台。同一模型可切换到复核步骤，但必须标为同上下文复核；仅在平台支持且用户授权时使用独立审阅者。先基于原始范围、安全目标、源码及搜索/读取结果检查防护，保存初始观察，再比对分析者的结论。独立上下文不预先提供主审的疑似根因和结论；同上下文不能声称忘记先前结论或具有独立性。
 
 ## 检查与停止条件
 
@@ -35,3 +35,11 @@ read 支持 UTF-8 源码，每次最多200行/16000字节，超限要求分片�
 - edges：非空数组，元素 `{from, to, resolution, reason, reads}`，记录与证明目标有关的调用/字段传递/控制生效边。resolution 为 resolved/excluded/unresolved；pass 仅 resolved/excluded，excluded 须源码反证。同函数候选记录输入到操作的边；入口不成立的误报记录被排除候选边，不强造不存在的整链。
 
 校验器确认记录完整性、引用和状态一致，不能自动发现所有隐藏调用或证明模型认真阅读。自填理由、伪造回执、遗漏义务无法仅靠 JSON 校验消除，仍须原始执行记录与源码语义复核。缺口不得通过删 finding、改误报或换历史 schema 隐藏。
+
+## 2.3 源码优先复核记录
+
+在对照主审结论前，用 scripts/candidate_ledger.py 的 review 子命令保存初始记录，根参数与候选登记相同，最后传入 <review.json>。输入 finding_id、mode（same_context_second_pass / fresh_context）、scope（实际复核入口/注册/模块范围）、observations、reads、controls、gaps。reads沿用上面的源码范围结构，引用最终supervision.receipts中相同ID的原始回执。controls是 `{name, assessment, reads}` 数组，记录实际发现的防护及实现依据；没有发现控制可为空，但observations需说明搜索范围及限制，不据此自动判为无防护。gaps保存当时的疑问，不在事后改写为早已确认。
+
+命令返回 `{path, sha256}`，放入对应supervision.source_review。完成对照与定向补查后，supervision.reconciliation说明每个初始疑问、新发现防护和主审分歧如何影响结论，并引用新证据；未解决问题进入checks/edges/gaps并保持blocked/pending。保存初始记录不是另开全仓扫描，也不重复验证已审实现。每个实例可共用相同读取回执，但要有自己的适用性判断；新发现的候选先登记，再审查。
+
+2.3的pass另检查初始记录摘要、本轮/实例ID、实际复核方式，以及scope/每个已发现控制所需源码范围确有读取回执，且存在对照说明；blocked/pending可以尚未形成该记录。程序不能证明保存时序、上下文隔离或理由的语义正确性，不能把这一检查称为独立审计认证。候选去向由candidate-ranking.md的原始账本另外核对。

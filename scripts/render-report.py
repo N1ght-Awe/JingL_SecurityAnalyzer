@@ -66,6 +66,8 @@ def render(data, evidence_root, source_name='report.json'):
              '未执行不表示低风险；源码确认与真实运行确认分别统计。', '']
     if not active:
         lines += ['当前报告没有未排除候选；这不证明系统不存在漏洞。' if not partial else '当前已审范围没有未排除候选；未覆盖部分不能作无漏洞结论。', '']
+    if data.get('schema_version') == '2.3.0':
+        lines += [f"已核对 **{len(findings)}** 个候选调用实例的去向；同根因的不同入口分别保留结论，实例数不等于独立根因数。", '']
     lines += ['### 系统与威胁边界', '']
     model = data.get('threat_model')
     if model:
@@ -105,6 +107,10 @@ def render(data, evidence_root, source_name='report.json'):
                    ('已支持的影响与利用范围', f['exploitation']), ('根因', f['reason']),
                    ('验证情况', f"{EXECUTION[v['status']]} / {SCOPE[v['scope']]}；目标：{v['goal']}；说明：{v['reason']}"),
                    ('待补证据', f['missing']), ('修复方向', f['remediation']), ('关联候选', f['related_findings'])]
+        if data.get('schema_version') == '2.3.0':
+            details.insert(2, ('调用实例（发现时标识）', f"{f['instance_key']}；入口：{f['entry']}；操作：{f['operation']}"))
+            if f.get('classification_reason'):
+                details.append(('类型调整依据', f['classification_reason']))
         lines += table(('项目', '内容'), details)
         lines += ['<details>', '<summary>查看八维证据</summary>', '']
         lines += table(('维度', '状态', '事实及范围', '引用'), [

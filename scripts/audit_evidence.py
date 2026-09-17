@@ -207,6 +207,36 @@ def validate_supervision(data, root):
                     return False
             return True
 
+        if data.get('schema_version') == '2.3.0':
+            try:
+                artifact = review.get('source_review')
+                if not isinstance(artifact, dict):
+                    raise ValueError('source-first review artifact required')
+                raw = local(root, artifact.get('path')).read_bytes()
+                if digest(raw) != artifact.get('sha256'):
+                    raise ValueError('source-first review digest mismatch')
+                baseline = json.loads(raw)
+                if (not isinstance(baseline, dict) or baseline.get('kind') != 'source_review'
+                        or baseline.get('run_id') != data.get('run_id') or baseline.get('finding_id') != fid):
+                    raise ValueError('source-first review identity mismatch')
+                require(baseline.get('mode') in ('same_context_second_pass', 'fresh_context'), label + 'declare actual reviewer context')
+                for key in ('scope', 'observations'):
+                    require(text(baseline.get(key)), label + 'source-first ' + key + ' required')
+                require(refs_cover(baseline.get('reads')), label + 'source-first scope not read')
+                controls = baseline.get('controls')
+                require(isinstance(controls, list), label + 'source-first controls array required (empty needs search rationale)')
+                for control in controls if isinstance(controls, list) else []:
+                    if not isinstance(control, dict):
+                        require(False, label + 'invalid source-first control')
+                        continue
+                    require(text(control.get('name')) and text(control.get('assessment')), label + 'control assessment required')
+                    require(refs_cover(control.get('reads')), label + 'discovered control implementation not read')
+                initial_gaps = baseline.get('gaps')
+                require(isinstance(initial_gaps, list) and all(text(x) for x in initial_gaps), label + 'initial review gaps required')
+                require(text(review.get('reconciliation')), label + 'reconcile initial observations/controls/gaps with final evidence')
+            except (OSError, ValueError, TypeError) as exc:
+                require(False, label + str(exc))
+
         checks = review.get('checks')
         checks = checks if isinstance(checks, dict) else {}
         for name in OBLIGATIONS:

@@ -1,4 +1,4 @@
-"""Validate JingL 2.0/2.1/2.2 contracts and evidence integrity; not vulnerability truth."""
+"""Validate JingL 2.0 through 2.3 contracts and evidence integrity; not vulnerability truth."""
 import argparse
 import hashlib
 import json
@@ -6,8 +6,9 @@ import re
 import importlib.util
 from pathlib import Path, PureWindowsPath
 
-VERSION = '2.2.0'
-RULES_VERSION = '2.2.1'
+VERSION = '2.3.0'
+RULES_VERSION = '2.3.0'
+SUPERVISED = ('2.2.0', VERSION)
 LEGACY_VERSION = '2.0.0'
 DIMENSIONS = ('Source', 'Propagation', 'Sink', 'Sanitizer', 'Guard',
               'Transport', 'Preconditions', 'Impact')
@@ -243,18 +244,25 @@ def validate(data, evidence_root):
     if not isinstance(data, dict):
         return ['Report must be an object']
     for key in ('schema_version', 'skill_version', 'rules_version'):
-        supported = {VERSION, '2.1.0', LEGACY_VERSION} if key == 'schema_version' else {'2.0.0', '2.0.1', '2.1.0', VERSION, RULES_VERSION}
+        supported = {VERSION, '2.2.0', '2.1.0', LEGACY_VERSION} if key == 'schema_version' else {'2.0.0', '2.0.1', '2.1.0', '2.2.0', '2.2.1', VERSION, RULES_VERSION}
         check(member(data.get(key), supported), f'{key}: unsupported version; adapt legacy data explicitly')
     check(string(data.get('run_id')), 'run_id required')
-    if RULES_VERSION in (data.get('skill_version'), data.get('rules_version')) or 'threat_model' in data:
-        check(data.get('schema_version') == VERSION, 'threat_model/2.2.1 rules require schema_version 2.2.0')
+    if data.get('schema_version') == VERSION:
+        check(all(data.get(k) == VERSION for k in ('skill_version', 'rules_version')), '2.3 schema requires 2.3 skill/rules versions')
+    if data.get('schema_version') == VERSION or any(data.get(k) in ('2.2.1', VERSION) for k in ('skill_version', 'rules_version')) or 'threat_model' in data:
+        check(data.get('schema_version') in SUPERVISED, 'threat_model requires schema_version 2.2.0 or 2.3.0')
         validate_threat_model(data, check, string)
     if data.get('schema_version') == LEGACY_VERSION:
         check(not any(key in data for key in EXTENSIONS), '2.1 extensions require schema_version 2.1.0; legacy checks cannot validate coverage/reuse')
         check(data.get('skill_version') not in ('2.1.0', VERSION) and data.get('rules_version') not in ('2.1.0', VERSION), '2.1+ rules require matching new schema')
-    if data.get('schema_version') != VERSION:
+    if data.get('schema_version') not in SUPERVISED:
         check('supervision' not in data, 'supervision requires schema_version 2.2.0')
-        check(data.get('skill_version') != VERSION and data.get('rules_version') != VERSION, '2.2 rules require schema_version 2.2.0')
+        check(not any(data.get(k) in ('2.2.0', '2.2.1', VERSION) for k in ('skill_version', 'rules_version')), '2.2+ rules require supervision schema')
+    if data.get('schema_version') != VERSION:
+        check('candidate_ledger' not in data, 'candidate ledger requires schema_version 2.3.0')
+        check(not any(data.get(k) == VERSION for k in ('skill_version', 'rules_version')), '2.3 rules require schema_version 2.3.0')
+        reviews = data.get('supervision', [])
+        check(not any(isinstance(r, dict) and ('source_review' in r or 'reconciliation' in r) for r in (reviews if isinstance(reviews, list) else [])), 'source-first review requires schema_version 2.3.0')
     check('report_validation_mode' not in data, 'use finding.validation, not legacy report_validation_mode')
     for key in ('repositories', 'findings', 'transport_links', 'cross_repo_chains', 'limitations'):
         check(isinstance(data.get(key), list), f'{key}: expected array')
@@ -384,13 +392,18 @@ def validate(data, evidence_root):
     else:
         for key, expected in [('candidates', len(findings)), ('pending_review', pending), ('reviewed', len(findings)-pending)]:
             check(type(metrics.get(key)) is int and metrics[key] == expected, f'metrics.{key}: expected {expected}')
-    if data.get('schema_version') in ('2.1.0', VERSION):
+    if data.get('schema_version') in ('2.1.0', '2.2.0', VERSION):
         validate_extensions(data, check, string, member, repo_ids, ids)
-    if data.get('schema_version') == VERSION:
+    if data.get('schema_version') in SUPERVISED:
         spec = importlib.util.spec_from_file_location('audit_evidence', Path(__file__).with_name('audit_evidence.py'))
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         errors.extend(module.validate_supervision(data, root))
+    if data.get('schema_version') == VERSION:
+        spec = importlib.util.spec_from_file_location('candidate_ledger', Path(__file__).with_name('candidate_ledger.py'))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        errors.extend(module.validate_ledger(data, root))
     return errors
 
 
