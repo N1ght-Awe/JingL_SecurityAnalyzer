@@ -7,7 +7,8 @@ import importlib.util
 from pathlib import Path, PureWindowsPath
 
 VERSION = '2.3.0'
-RULES_VERSION = '2.3.1'
+RULES_VERSION = '2.3.2'
+RULES_23 = {VERSION, '2.3.1', RULES_VERSION}
 SUPERVISED = ('2.2.0', VERSION)
 LEGACY_VERSION = '2.0.0'
 DIMENSIONS = ('Source', 'Propagation', 'Sink', 'Sanitizer', 'Guard',
@@ -244,11 +245,11 @@ def validate(data, evidence_root):
     if not isinstance(data, dict):
         return ['Report must be an object']
     for key in ('schema_version', 'skill_version', 'rules_version'):
-        supported = {VERSION, '2.2.0', '2.1.0', LEGACY_VERSION} if key == 'schema_version' else {'2.0.0', '2.0.1', '2.1.0', '2.2.0', '2.2.1', VERSION, RULES_VERSION}
+        supported = {VERSION, '2.2.0', '2.1.0', LEGACY_VERSION} if key == 'schema_version' else {'2.0.0', '2.0.1', '2.1.0', '2.2.0', '2.2.1'} | RULES_23
         check(member(data.get(key), supported), f'{key}: unsupported version; adapt legacy data explicitly')
     check(string(data.get('run_id')), 'run_id required')
     if data.get('schema_version') == VERSION:
-        check(member(data.get('rules_version'), {VERSION, RULES_VERSION}) and data.get('skill_version') == data.get('rules_version'), '2.3 schema requires matching supported 2.3 skill/rules versions')
+        check(member(data.get('rules_version'), RULES_23) and data.get('skill_version') == data.get('rules_version'), '2.3 schema requires matching supported 2.3 skill/rules versions')
     if data.get('schema_version') == VERSION or any(data.get(k) in ('2.2.1', VERSION) for k in ('skill_version', 'rules_version')) or 'threat_model' in data:
         check(data.get('schema_version') in SUPERVISED, 'threat_model requires schema_version 2.2.0 or 2.3.0')
         validate_threat_model(data, check, string)
@@ -260,7 +261,7 @@ def validate(data, evidence_root):
         check(not any(data.get(k) in ('2.2.0', '2.2.1', VERSION) for k in ('skill_version', 'rules_version')), '2.2+ rules require supervision schema')
     if data.get('schema_version') != VERSION:
         check('candidate_ledger' not in data, 'candidate ledger requires schema_version 2.3.0')
-        check(not any(data.get(k) in (VERSION, RULES_VERSION) for k in ('skill_version', 'rules_version')), '2.3 rules require schema_version 2.3.0')
+        check(not any(member(data.get(k), RULES_23) for k in ('skill_version', 'rules_version')), '2.3 rules require schema_version 2.3.0')
         reviews = data.get('supervision', [])
         check(not any(isinstance(r, dict) and ('source_review' in r or 'reconciliation' in r) for r in (reviews if isinstance(reviews, list) else [])), 'source-first review requires schema_version 2.3.0')
     check('report_validation_mode' not in data, 'use finding.validation, not legacy report_validation_mode')
@@ -289,7 +290,7 @@ def validate(data, evidence_root):
             errors.append(f'{label}: expected object')
             continue
         check(not any(key in f for key in ('poc_validation_mode', 'exploitation_method', 'http_interface', 'http_poc')), f'{label}: use canonical exploitation/validation fields')
-        if RULES_VERSION in (data.get('skill_version'), data.get('rules_version')):
+        if any(member(data.get(k), {'2.3.1', RULES_VERSION}) for k in ('skill_version', 'rules_version')):
             check('severity' not in f, f'{label}.severity: use priority and grade_basis; preserve imported labels as legacy_severity')
             check('review_note' not in f, f'{label}.review_note: use evidence summaries, reason, grade_basis and supervision.reconciliation')
         for key in ('id', 'location', 'type', 'grade_basis', 'trigger', 'exploitation', 'reason', 'remediation'):
@@ -341,6 +342,8 @@ def validate(data, evidence_root):
             errors.append(f'{label}.validation: required object')
             continue
         check('poc_validation_mode' not in v, f'{label}: use validation.status/scope, not poc_validation_mode')
+        if data.get('rules_version') != RULES_VERSION:
+            check('execution_receipt' not in v, f'{label}: execution_receipt requires rules_version 2.3.2; do not silently downgrade evidence')
         check(member(v.get('status'), EXECUTIONS), f'{label}: invalid execution status')
         check(member(v.get('scope'), SCOPES), f'{label}: invalid verification scope')
         for key in ('goal', 'reason'):
@@ -402,11 +405,18 @@ def validate(data, evidence_root):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         errors.extend(module.validate_supervision(data, root))
+        if data.get('rules_version') == RULES_VERSION:
+            errors.extend(module.validate_control_bindings(data, root))
     if data.get('schema_version') == VERSION:
         spec = importlib.util.spec_from_file_location('candidate_ledger', Path(__file__).with_name('candidate_ledger.py'))
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         errors.extend(module.validate_ledger(data, root))
+    if data.get('rules_version') == RULES_VERSION:
+        spec = importlib.util.spec_from_file_location('execution_evidence', Path(__file__).with_name('execution_evidence.py'))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        errors.extend(module.validate_execution_bindings(data, root))
     return errors
 
 

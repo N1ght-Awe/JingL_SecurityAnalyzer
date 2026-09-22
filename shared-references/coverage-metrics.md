@@ -12,7 +12,9 @@ complete 要求 required 全部 reviewed 且 gaps 为空；其他为 partial，�
 
 范围：仓库/提交、模块、生产/测试/生成文件数、支持语言、排除路径及原因、入口类别和已检查入口、实际已读文件、已审代码范围、截断与未重试搜索。扫描完成仅指声明范围和规则计划完成，不保证不存在漏洞。
 
-漏斗：raw_hits（去重前命中）、candidates（根因去重后）、reviewed、pending_review、source_closed、validation_selected、validation_executed、validation_passed、unresolved。分别定义，不能混加。`candidates = reviewed + pending_review`；报告 status 计数之和等于候选数；验证计数与 finding 原始记录一致。
+漏斗：raw_hits（去重前命中）、candidates（本轮账本中去重后的调用实例数）、reviewed、pending_review、source_closed、validation_selected、validation_executed、validation_passed、unresolved。2.3起同一instance_key重复命中沿用ID；不同入口、调用点或独立操作分别登记、审结和计数，即使根因相同。根因只用于分组与修复关联，不代替候选数，也不通过合并删除实例；误报、延期与未解决项仍在账本和findings中。
+
+`candidates = len(findings) = reviewed + pending_review`，并与本轮候选账本实例数对账；报告status计数之和等于候选数。pending_review仅计status=待审查；reviewed计其余状态，包含已初审但缺源码或待验证的实例，不表示全部终审闭合或运行验证通过。验证计数按明确覆盖的finding实例分别核对，执行命令次数另计；一条suite回执可列多个实例，但不能把未列出或未实际验证的兄弟实例计为PASSED。控制侧观察、防护条目与根因分组数分别列示，不混加。历史报告保留当时口径，比较前显式核对，不自动改写历史计数。
 
 成本：phase_wall_seconds、total_wall_seconds、input_tokens、output_tokens、cached_tokens、model、provider_usage_basis、loaded_reference_chars、build_count、build_reused、retry_count、blocked_reasons。并行墙钟时间不等于各任务用时之和；字符数不是 token 数。
 

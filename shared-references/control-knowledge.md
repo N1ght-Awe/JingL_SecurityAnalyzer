@@ -34,7 +34,7 @@
 `control_knowledge` 为数组，空数组表示本轮未建立可复用条目。每项：
 
 - id、repo_id、symbol、revision、status（reviewed/stale）。
-- fingerprints：非空数组，每项 path（该仓相对文件路径）、sha256（实际字节摘要）；涵盖实现及相关辅助/依赖/配置。摘要用于下轮比对，报告校验器不自动读取业务仓确认其真实性。
+- fingerprints：非空数组，每项path（该仓规范相对文件路径）、sha256（实际字节摘要）；涵盖实现及相关辅助/依赖/配置。2.3.2应用时须与本轮有效读取快照匹配；校验器只读取证据目录，不自动读取业务仓。
 - protects：非空漏洞类型列表；contract、assumptions、limitations 为非空说明；evidence_refs 非空。
 
 `control_applications` 记录每条使用路径：id、control_id、repo_id、location、finding_ids（可以为空）、outcome（applicable/not_applicable/unresolved）、reason、checks。checks 是上述六个键的对象，每项 state（observed/inferred/missing）、result（pass/fail/unknown）、summary、refs；applicable 要求六项均 observed+pass 且有引用，所引用 knowledge 为 reviewed，关联 finding 类型属于 protects。observed 表示完成当前核验，不表示条件一定满足；观察到校验后又被危险拼接时是 observed+fail，不能将 outcome 写成 applicable。
@@ -44,3 +44,9 @@
 ## 与执行监督衔接
 
 2.2报告复用防护时，execution-supervision 的义务/边引用当前调用点、返回值使用、相关配置及实现读取回执。复用的旧审查理由可以保留，实现身份须以本轮源码快照核对；控制存在但未读/未确认生效时不能借 applicable 跳过监督。
+
+2.3.2校验器从本轮全部supervision.receipts中的有效read回执建立`(repo_id, path) → source_sha256`索引，核验回执、源码快照、片段、行号及run_id，再将applicable所用知识的全部fingerprints逐项对账。损坏、跨轮、未知仓库或同仓同文件混合版本不能满足绑定；路径仅统一分隔符，不通过同名文件、大小写猜测或越界路径替代身份。
+
+没有当前匹配快照时保留application.unresolved并补读；摘要冲突时将相关knowledge标stale并重审，不能自动更换指纹沿用旧结论。工具只返回错误，不代改状态。调用方仓库可与防护实现仓库不同，但指纹必须匹配知识所指仓库；仓库其他文件变更导致revision标签不同，只要相关指纹相同，不单凭标签拒绝复用。
+
+未被应用的历史reviewed/stale知识，以及unresolved或not_applicable路径，不因缺少当前防护快照阻止部分交付；已提供的回执仍须有效。历史2.3.1及更早规则维持原契约。摘要一致只排除记录之间的源码版本矛盾，不能证明模型理解了实现、列全了依赖或审查了全部相关配置。

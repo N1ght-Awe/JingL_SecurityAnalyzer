@@ -35,6 +35,8 @@ Source.summary/refs 记录修改能力与来源证据，Propagation 记录重查
 
 确认必须满足 PASSED、非 none scope、target_executed=true、controls_passed=true、result_supported=true、完整工具记录。模型写出的预期输出、手写同款漏洞代码、mock 的危险结果不算目标执行。
 
+2.3.2的PASSED还须按report-schema/poc-execution绑定本轮、明确列出的调用实例与已审源码，不能串用旧运行、兄弟路径或其他源码版本的日志。回执有效不等于实际业务目标已执行，仍须检查具体测试、断言和正负对照；历史报告保留原契约，不只改版本号就升级证据。
+
 ## 防护状态与证据状态
 
 state 描述证据掌握程度，保持 observed / inferred / missing / not_applicable。missing 表示该维度所需证据缺失，不表示已经证明防护不存在。完成确切路径范围检查后，观察到缺少控制可记 observed，summary 写明缺失的是哪种控制及检查范围，refs 指向实际路径/配置证据；未读完为待审查，实现确实未提供为缺失关键源码，政策或部署未知为待验证。不得用 not_applicable 隐藏未知。

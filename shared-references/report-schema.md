@@ -4,11 +4,11 @@
 
 ## 顶层字段
 
-新报告 `schema_version` 为 2.3.0，`skill_version`、`rules_version` 均为 2.3.1；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`、`reviewed`、`pending_review` 必须与 findings 一致，不混入控制侧观察。
+新报告 `schema_version` 为 2.3.0，`skill_version`、`rules_version` 均为 2.3.2；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`按本轮账本调用实例计数，同实例重复命中去重，不同入口/调用点保留；根因只分组。candidates、reviewed、pending_review必须与findings一致，不混入控制侧观察。
 
 2.1.0 另要求 `scan_types`（非空18类子集）、`assets`、`coverage`、`coverage_status`，具体结构与含义见 coverage-metrics.md 和 repo-boundary-manifest.md；以及 `control_knowledge`、`control_applications`、`control_observations` 三个数组（无记录填空数组），结构见 control-knowledge.md、protection-audit-methodology.md。完整范围或部分报告均可交付，不把覆盖状态与 finding/validation 状态混为一谈。
 
-路径复用的实现指纹是仓库相对 path 与真实 sha256；与 validation.artifacts（报告根目录内的运行证据）用途不同。报告校验器检查前者结构与引用，不自动读取业务仓，不宣称重新计算了源码摘要或验证了适用性。
+路径复用的实现指纹是仓库相对path与真实sha256；与validation.artifacts（报告根目录内的运行证据）用途不同。2.3.2对applicable引用的全部fingerprints，按知识的repo_id/path与本轮supervision有效读取快照交叉核对；缺失/冲突保留unresolved，变化先标stale再重审。校验器重算已存快照摘要，不读取业务仓；仅仓库revision标签不同但相关指纹相同不拒绝，也不因合法跨仓调用的调用方repo_id不同拒绝。具体合同见control-knowledge.md。
 
 ## 轻量威胁概览
 
@@ -40,6 +40,12 @@
 
 前三个布尔标记需依据原始结果，不可作为人工绕过确认门槛的开关。artifacts 为对象列表，每项 path（相对报告根目录）、sha256（实际文件摘要）。确认至少一项实际原始证据；文件不存在/摘要不符拒绝交付。PASSED 必须 exit_code=0 且目标、对照和结果检查均通过；其他状态的 result_supported 必须为 false。失败尝试也保留命令、环境和证据，缺失说明原因。
 
+2.3.2的PASSED另须`execution_receipt: {path, sha256}`，由scripts/execution_evidence.py采集，具体运行方式见poc-execution.md。回执绑定run_id、明确列出的targets（id/instance_key/repo_id/goal/scope及sources中的repo_id/path/sha256）、仓库声明revision/path、命令参数、工作目录、环境、起止时间、退出/超时及cleanup_error和原始日志。sources涵盖该实例supervision中保留的全部read源码，以及finding_ids明确关联该实例且outcome=applicable的防护知识全部指纹；共享防护在其他实例下读取过，也纳入本实例执行绑定。repositories中的revision/path来自报告声明，不是脚本测量的Git提交；脚本实读的是这些已审文件执行前后的字节摘要。
+
+validation的command/environment/executed_at/exit_code须与回执一致，artifacts须包含回执绑定的原始日志。PASSED还要求无超时、无cleanup_error、已审源码执行前后一致；新补充或替换读取快照、关联适用防护变化后须重新取得匹配执行证据，不能删除已保留读取来迁就旧回执。一条suite回执只能用于其明确列出的实例，逐项核实测试与断言确实覆盖相应目标；目标、scope、仓库声明或已审源码不同不得串用。日志存在和命令成功均不能自动设置target_executed/controls_passed/result_supported。
+
+FAILED/TIMEOUT/BLOCKED等未通过状态可以没有execution_receipt并交付明确缺口；只要提供了该字段，回执身份、摘要、元数据与引用仍须合法一致。未执行状态不补造日志。以上是防串证据的契约检查，不证明命令实际调用业务目标、语义判断正确或能够抵御故意伪造。
+
 ## 固定阅读顺序
 
 每次使用相同标题、术语和栏目；不临时改变成另一套长文格式。漏洞扫描报告内部依次为：结果总览 → 系统与威胁边界 → 问题清单 → 问题详情 → 已排除候选 → 防护体系观察。总览将确认、源码确认、待处理和排除分别统计，并明确覆盖完整性。
@@ -57,7 +63,9 @@
 
 ## 历史兼容与字段边界
 
-2.3.1沿用2.3.0结构并拒绝finding.severity和finding.review_note，防止意见留在未消费的字段中：级别写priority及grade_basis，来源/约束写对应evidence.summary/refs，原因写reason，复核差异写supervision.reconciliation；影响结论的复核内容也应落入报告展示的证据、原因或级别依据。历史标签可显式保存为legacy_severity，但不作当前权威级别。历史2.3.0等报告保留原样读取，不将额外字段自动解释为已生效；迁移时人工核对后再更新版本。
+2.3.1及之后规则沿用2.3.0结构并拒绝finding.severity和finding.review_note，防止意见留在未消费的字段中：级别写priority及grade_basis，来源/约束写对应evidence.summary/refs，原因写reason，复核差异写supervision.reconciliation；影响结论的复核内容也应落入报告展示的证据、原因或级别依据。历史标签可显式保存为legacy_severity，但不作当前权威级别。历史2.3.0等报告保留原样读取，不将额外字段自动解释为已生效；迁移时人工核对后再更新版本。
+
+历史规则2.3.1及更早报告保留各自证据门槛，不要求凭空补齐本次两个绑定，也不声称已经通过它们。迁为2.3.2时须实际补齐当前读取/执行证据，否则保留历史原件或如实交付未解决状态。旧规则报告携带execution_receipt会拒绝，防止降版本后新字段被静默忽略。
 
 status使用proof-schema的中文枚举，priority使用P0–P3或null，validation.status使用执行枚举；不使用confirmed/false_positive/low互相代替。校验器检查字段与证据契约，不能根据说明文字自动决定数据是否可控或防护是否充分。
 

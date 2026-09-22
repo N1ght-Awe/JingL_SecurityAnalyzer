@@ -43,9 +43,9 @@ $patterns = Get-Content -Raw -Encoding UTF8 (Join-Path $refs 'proof-patterns.md'
 if ($patterns -notmatch 'supply-chain\.upload-download-execute-without-verification') { throw 'Missing supply-chain proof pattern' }
 if ($text -match '## 17') { throw 'Main entry still has a stale 17-type heading' }
 foreach ($versionField in @('skill_version', 'rules_version')) {
-  if ($text -notmatch "$($versionField): 2\.3\.1") { throw "Stale version: $versionField" }
+  if ($text -notmatch "$($versionField): 2\.3\.2") { throw "Stale version: $versionField" }
 }
-foreach ($path in @('scripts/validate-report.py', 'tests/test_report_contract.py', 'tests/test_report_extensions.py', 'scripts/audit_evidence.py', 'tests/test_supervision.py', 'scripts/render-report.py', 'tests/test_report_presentation.py', 'scripts/candidate_ledger.py', 'tests/test_candidate_ledger.py')) {
+foreach ($path in @('scripts/validate-report.py', 'tests/test_report_contract.py', 'tests/test_report_extensions.py', 'scripts/audit_evidence.py', 'tests/test_supervision.py', 'scripts/render-report.py', 'tests/test_report_presentation.py', 'scripts/candidate_ledger.py', 'tests/test_candidate_ledger.py', 'scripts/execution_evidence.py', 'tests/test_execution_bindings.py', 'tests/test_control_bindings.py')) {
   if (-not (Test-Path (Join-Path $Root $path))) { throw "Missing contract validation: $path" }
 }
 

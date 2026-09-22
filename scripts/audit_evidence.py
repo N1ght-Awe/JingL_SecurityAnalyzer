@@ -129,6 +129,107 @@ def load_receipt(root, artifact, run_id):
     return item
 
 
+def source_path(path):
+    """Normalize separators only; never resolve source identities against a live repo."""
+    if (not isinstance(path, str) or not path or '\x00' in path or ':' in path
+            or PureWindowsPath(path).drive or PureWindowsPath(path).root):
+        raise ValueError('source path must be repository-relative')
+    parts = path.replace('\\', '/').split('/')
+    if any(part in ('', '.', '..') for part in parts):
+        raise ValueError('source path must be canonical and repository-relative')
+    return '/'.join(parts)
+
+
+def collect_read_snapshots(data, root):
+    """Return ({(repo_id, path): sha256}, errors) from verified current-run receipts.
+
+    Conflicting versions are excluded from the index, not resolved by receipt order.
+    This binds recorded source bytes; it does not prove complete or correct review.
+    """
+    snapshots, errors, conflicts = {}, [], set()
+    if not isinstance(data, dict):
+        return {}, ['read snapshots: report must be an object']
+    repositories = data.get('repositories')
+    repo_ids = {r['repo_id'] for r in repositories
+                if isinstance(r, dict) and isinstance(r.get('repo_id'), str) and r['repo_id'].strip()
+                } if isinstance(repositories, list) else set()
+    records = data.get('supervision')
+    if not isinstance(records, list):
+        return {}, ['read snapshots: supervision must be an array']
+    if not isinstance(data.get('run_id'), str) or not data['run_id'].strip():
+        return {}, ['read snapshots: current run_id required']
+    for review in records:
+        if not isinstance(review, dict):
+            errors.append('read snapshots: supervision record must be an object')
+            continue
+        artifacts = review.get('receipts', {})
+        if not isinstance(artifacts, dict):
+            errors.append('read snapshots: receipt map must be an object')
+            continue
+        for receipt_id, artifact in artifacts.items():
+            label = f'read snapshots: {review.get("finding_id")}/{receipt_id}: '
+            try:
+                item = load_receipt(root, artifact, data['run_id'])
+                repo_id = item.get('repo_id')
+                if not isinstance(repo_id, str) or repo_id not in repo_ids:
+                    raise ValueError('unknown receipt repo_id')
+                if item['kind'] != 'read':
+                    continue
+                key = (repo_id, source_path(item.get('path')))
+                sha256 = item['source_sha256']
+                previous = snapshots.setdefault(key, sha256)
+                if previous != sha256:
+                    conflicts.add(key)
+                    errors.append(label + 'mixed source snapshots; reread affected evidence and retain unresolved until reconciled')
+            except (OSError, ValueError, TypeError) as exc:
+                errors.append(label + str(exc))
+    for key in conflicts:
+        snapshots.pop(key, None)
+    return snapshots, errors
+
+
+def validate_control_bindings(data, root):
+    """Bind applied control fingerprints to current recorded source, not revision labels."""
+    snapshots, errors = collect_read_snapshots(data, root)
+    if not isinstance(data, dict):
+        return errors
+    knowledge = data.get('control_knowledge')
+    controls = {item['id']: item for item in knowledge
+                if isinstance(item, dict) and isinstance(item.get('id'), str)
+                } if isinstance(knowledge, list) else {}
+    applications = data.get('control_applications')
+    for application in applications if isinstance(applications, list) else []:
+        if not isinstance(application, dict) or application.get('outcome') != 'applicable':
+            continue
+        label = f'control binding: {application.get("id")}: '
+        control_id = application.get('control_id')
+        control = controls.get(control_id) if isinstance(control_id, str) else None
+        if control is None or control.get('status') != 'reviewed':
+            errors.append(label + 'stale/unknown control cannot be applicable; retain unresolved pending review')
+            continue
+        fingerprints = control.get('fingerprints')
+        if not isinstance(fingerprints, list) or not fingerprints:
+            errors.append(label + 'all control fingerprints required; retain unresolved')
+            continue
+        repo_id = control.get('repo_id')
+        for fingerprint in fingerprints:
+            try:
+                if not isinstance(fingerprint, dict) or not isinstance(repo_id, str):
+                    raise ValueError('invalid control fingerprint/repo_id; retain unresolved')
+                path = source_path(fingerprint.get('path'))
+                expected = fingerprint.get('sha256')
+                if not isinstance(expected, str) or len(expected) != 64 or any(c not in '0123456789abcdefABCDEF' for c in expected):
+                    raise ValueError('invalid control fingerprint SHA-256; retain unresolved')
+                actual = snapshots.get((repo_id, path))
+                if actual is None:
+                    raise ValueError(f'{repo_id}:{path}: current read snapshot missing/conflicting; retain unresolved')
+                if expected.lower() != actual:
+                    raise ValueError(f'{repo_id}:{path}: control fingerprint differs from current read snapshot; mark knowledge stale and application unresolved pending review')
+            except (ValueError, TypeError) as exc:
+                errors.append(label + str(exc))
+    return errors
+
+
 def validate_supervision(data, root):
     errors = []
 
