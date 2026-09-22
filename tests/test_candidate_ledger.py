@@ -177,6 +177,48 @@ class CandidateLedgerTests(unittest.TestCase):
         self.data['schema_version'] = []
         self.assertTrue(self.errors())
 
+    def test_231_accepts_canonical_review_and_preserves_grade_in_rendering(self):
+        self.data.update(skill_version='2.3.1', rules_version='2.3.1')
+        f = self.data['findings'][0]
+        f.update(priority='P1', grade_basis='REVIEW: impact remains high', reason='REVIEW: bounded source conclusion')
+        f['evidence']['Source']['summary'] = 'REVIEW: current request value is consumed; upstream origin does not constrain it'
+        self.review['reconciliation'] = 'REVIEW: checked current entry and control applicability'
+        before = copy.deepcopy(self.data)
+        self.assertEqual(self.errors(), [])
+        rendered = renderer.render(self.data, self.evidence)
+        self.assertIn('impact remains high', rendered)
+        self.assertIn('current request value is consumed', rendered)
+        self.assertIn('P1', rendered)
+        self.assertEqual(self.data, before)
+
+    def test_231_rejects_unconsumed_grade_and_review_fields_before_render(self):
+        for key, value in [('severity', 'low'), ('review_note', 'critical review would be lost')]:
+            with self.subTest(field=key):
+                data = copy.deepcopy(self.data)
+                data.update(skill_version='2.3.1', rules_version='2.3.1')
+                data['findings'][0][key] = value
+                self.assertTrue(any(key in e for e in validator.validate(data, self.evidence)))
+                with self.assertRaises(ValueError):
+                    renderer.render(data, self.evidence)
+
+    def test_231_keeps_legacy_labels_without_making_them_authoritative(self):
+        self.data.update(skill_version='2.3.1', rules_version='2.3.1')
+        self.data['findings'][0].update(legacy_severity='low', priority='P1')
+        self.assertEqual(self.errors(), [])
+        renderer.render(self.data, self.evidence)
+        self.assertEqual(self.data['findings'][0]['priority'], 'P1')
+        # Older artifacts remain readable with their original rules version.
+        self.data.update(skill_version='2.3.0', rules_version='2.3.0')
+        self.data['findings'][0].update(severity='low', review_note='historical unconsumed note')
+        self.assertEqual(self.errors(), [])
+
+    def test_231_cannot_claim_old_schema_or_mismatched_rule_versions(self):
+        for schema, skill, rules in [('2.2.0', '2.3.1', '2.3.1'), ('2.3.0', '2.3.0', '2.3.1'), ('2.3.0', '2.3.1', '2.3.0')]:
+            with self.subTest(schema=schema, skill=skill, rules=rules):
+                data = copy.deepcopy(self.data)
+                data.update(schema_version=schema, skill_version=skill, rules_version=rules)
+                self.assertTrue(validator.validate(data, self.evidence))
+
     def test_renderer_preserves_entry_operation_and_candidate_count(self):
         rendered = renderer.render(self.data, self.evidence)
         self.assertIn('Query.handle', rendered)

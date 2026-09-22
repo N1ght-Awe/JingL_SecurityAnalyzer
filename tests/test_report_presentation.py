@@ -96,6 +96,27 @@ class PresentationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             renderer.render(self.data, '.')
 
+    def test_untrusted_text_is_safe_in_findings_evidence_and_link_views(self):
+        attack = '<img src=x onerror=alert(1)>|[open](javascript:alert(1))\nnext'
+        data = copy.deepcopy(self.data)
+        f = data['findings'][0]
+        for field in ('title', 'location', 'grade_basis', 'trigger', 'exploitation', 'reason', 'remediation'):
+            f[field] = attack
+        for evidence in f['evidence'].values():
+            evidence.update(summary=attack, refs=[attack])
+        data['threat_model']['summary'] = attack
+        data['threat_model']['boundaries'][0]['control'] = attack
+        data['limitations'] = [attack]
+        data['transport_links'] = [{'caller': attack, 'details': attack}]
+        data['cross_repo_chains'] = [{'callee': attack, 'details': attack}]
+        before = copy.deepcopy(data)
+        rendered = renderer.render(data, '.')
+        self.assertNotIn('<img', rendered)
+        self.assertNotIn('[open](javascript:', rendered)
+        self.assertIn('&lt;img', rendered)
+        self.assertIn('\\|\\[open\\]', rendered)
+        self.assertEqual(data, before)
+
     def test_model_shapes_and_legacy_downgrade_fail(self):
         for value in (None, [], {'summary': 'x', 'actors': [], 'boundaries': [], 'assumptions': []}):
             data = copy.deepcopy(self.data)

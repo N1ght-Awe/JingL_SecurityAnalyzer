@@ -4,7 +4,7 @@
 
 ## 顶层字段
 
-新报告 `schema_version`、`skill_version`、`rules_version` 均为 2.3.0；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`、`reviewed`、`pending_review` 必须与 findings 一致，不混入控制侧观察。
+新报告 `schema_version` 为 2.3.0，`skill_version`、`rules_version` 均为 2.3.1；`run_id`、`repositories`（repo_id/revision/path）、`findings`、`transport_links`、`cross_repo_chains`、`metrics`、`limitations` 继续使用。`metrics.candidates`、`reviewed`、`pending_review` 必须与 findings 一致，不混入控制侧观察。
 
 2.1.0 另要求 `scan_types`（非空18类子集）、`assets`、`coverage`、`coverage_status`，具体结构与含义见 coverage-metrics.md 和 repo-boundary-manifest.md；以及 `control_knowledge`、`control_applications`、`control_observations` 三个数组（无记录填空数组），结构见 control-knowledge.md、protection-audit-methodology.md。完整范围或部分报告均可交付，不把覆盖状态与 finding/validation 状态混为一谈。
 
@@ -56,6 +56,12 @@
 4. **跨代码仓调用链分析**：cross_repo_chains，逐边证据、关联发现、未知边界和验证范围。无链写未发现关联及覆盖限制。
 
 ## 历史兼容与字段边界
+
+2.3.1沿用2.3.0结构并拒绝finding.severity和finding.review_note，防止意见留在未消费的字段中：级别写priority及grade_basis，来源/约束写对应evidence.summary/refs，原因写reason，复核差异写supervision.reconciliation；影响结论的复核内容也应落入报告展示的证据、原因或级别依据。历史标签可显式保存为legacy_severity，但不作当前权威级别。历史2.3.0等报告保留原样读取，不将额外字段自动解释为已生效；迁移时人工核对后再更新版本。
+
+status使用proof-schema的中文枚举，priority使用P0–P3或null，validation.status使用执行枚举；不使用confirmed/false_positive/low互相代替。校验器检查字段与证据契约，不能根据说明文字自动决定数据是否可控或防护是否充分。
+
+报告字段、源码片段及payload均作为不可信数据输出。当前Markdown使用安全文本转义；若接入HTML、属性、URL或脚本模板，按实际上下文使用文本节点、安全属性设置/协议限制或安全序列化，不能用一个HTML转义函数代替全部上下文保护。维护时覆盖清单、详情、链接和其他实际渲染位置，测试结构边界而非仅检查单个script样例是否弹窗。
 
 校验器继续接受 skill/rules 2.0.0/2.0.1 的 schema 2.0.0 报告，维持原证据门槛；这只表示历史契约合格，不能宣称完成2.1覆盖/复用检查。2.1.0规则新产出必须用2.1.0契约。历史报告不可仅改版本号，需实际补齐资产与覆盖证据；无法补齐时保留历史原件或如实迁移为partial，禁止补造已审资产。
 

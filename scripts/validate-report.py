@@ -7,7 +7,7 @@ import importlib.util
 from pathlib import Path, PureWindowsPath
 
 VERSION = '2.3.0'
-RULES_VERSION = '2.3.0'
+RULES_VERSION = '2.3.1'
 SUPERVISED = ('2.2.0', VERSION)
 LEGACY_VERSION = '2.0.0'
 DIMENSIONS = ('Source', 'Propagation', 'Sink', 'Sanitizer', 'Guard',
@@ -248,7 +248,7 @@ def validate(data, evidence_root):
         check(member(data.get(key), supported), f'{key}: unsupported version; adapt legacy data explicitly')
     check(string(data.get('run_id')), 'run_id required')
     if data.get('schema_version') == VERSION:
-        check(all(data.get(k) == VERSION for k in ('skill_version', 'rules_version')), '2.3 schema requires 2.3 skill/rules versions')
+        check(member(data.get('rules_version'), {VERSION, RULES_VERSION}) and data.get('skill_version') == data.get('rules_version'), '2.3 schema requires matching supported 2.3 skill/rules versions')
     if data.get('schema_version') == VERSION or any(data.get(k) in ('2.2.1', VERSION) for k in ('skill_version', 'rules_version')) or 'threat_model' in data:
         check(data.get('schema_version') in SUPERVISED, 'threat_model requires schema_version 2.2.0 or 2.3.0')
         validate_threat_model(data, check, string)
@@ -260,7 +260,7 @@ def validate(data, evidence_root):
         check(not any(data.get(k) in ('2.2.0', '2.2.1', VERSION) for k in ('skill_version', 'rules_version')), '2.2+ rules require supervision schema')
     if data.get('schema_version') != VERSION:
         check('candidate_ledger' not in data, 'candidate ledger requires schema_version 2.3.0')
-        check(not any(data.get(k) == VERSION for k in ('skill_version', 'rules_version')), '2.3 rules require schema_version 2.3.0')
+        check(not any(data.get(k) in (VERSION, RULES_VERSION) for k in ('skill_version', 'rules_version')), '2.3 rules require schema_version 2.3.0')
         reviews = data.get('supervision', [])
         check(not any(isinstance(r, dict) and ('source_review' in r or 'reconciliation' in r) for r in (reviews if isinstance(reviews, list) else [])), 'source-first review requires schema_version 2.3.0')
     check('report_validation_mode' not in data, 'use finding.validation, not legacy report_validation_mode')
@@ -289,6 +289,9 @@ def validate(data, evidence_root):
             errors.append(f'{label}: expected object')
             continue
         check(not any(key in f for key in ('poc_validation_mode', 'exploitation_method', 'http_interface', 'http_poc')), f'{label}: use canonical exploitation/validation fields')
+        if RULES_VERSION in (data.get('skill_version'), data.get('rules_version')):
+            check('severity' not in f, f'{label}.severity: use priority and grade_basis; preserve imported labels as legacy_severity')
+            check('review_note' not in f, f'{label}.review_note: use evidence summaries, reason, grade_basis and supervision.reconciliation')
         for key in ('id', 'location', 'type', 'grade_basis', 'trigger', 'exploitation', 'reason', 'remediation'):
             check(string(f.get(key)), f'{label}.{key} required')
         if string(f.get('id')):
